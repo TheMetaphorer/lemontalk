@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <style>
+  .container {
+    border: 2px solid #dedede;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+  }
+
+  /* Darker chat container */
+  .darker {
+    border-color: #ccc;
+    background-color: #ddd;
+  }
+
+  /* Clear floats */
+  .container::after {
+    content: "";
+    clear: both;
+    display: table;
+  }
+
+  #footer {
+    position: fixed;
+    bottom: 0%;
+    width: 100%;
+    background-color: #393838;
+    opacity: 1;
+  }
+  #message {
+    width: 60%;
+  }
+  input[type='text'],
+  textarea {
+    font-size: 16px;
+  }
+  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1.0,maximum-scale=1.0"/>
+  <title>Lemons</title>
+  <script type="text/javascript" src="{{ url_for('static', filename='jquery.js')}}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='cyphermod/sjcl.js')}}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='socket.io.js')}}"></script>
+</head>
+<body>
+  <div id="chatbody">
+
+  </div>
+  <div id="footer">
+    <input type="text" placeholder="Nickname" id="nick">
+    <input type="text" id="message">
+    <button onclick="sendmsg()">Send</button>
+  </div>
+  <script>
+    var sock = io();
+    var kotd = "";
+    sock.emit('connected')
+    sock.on("nk", function(data) {
+      kotd = data;
+      console.log("The new key is:\n\n" + kotd)
+    });
+    sock.on("update", function(data) {
+      console.log(data)
+      plaintext = sjcl.decrypt(kotd, JSON.stringify(data[0]));
+      identity = sjcl.decrypt(kotd, JSON.stringify(data[1]));
+      var date_locale = new Date().toLocaleString()
+      var html_string_other = `<div class="container"><p style='text-align:left'>${plaintext}</p><p style="text-align:left">${identity}, ${date_locale}</p></div>`;
+      var html_string_self = `<div class="container"><p style='text-align:right'>${plaintext}</p><p style="text-align:right">${identity}, ${date_locale}</p></div>`;
+
+      var self_identity = $("#nick").val();
+      if (identity != self_identity) {
+        $("#chatbody").append(html_string_other);
+      } else {
+        $("#chatbody").append(html_string_self);
+      }
+    });
+    var sendmsg = function() {
+      cipher = sjcl.encrypt(kotd, $("#message").val());
+      nickcipher = sjcl.encrypt(kotd, $("#nick").val());
+      console.log(cipher, nickcipher)
+      sock.emit('message',
+        [cipher, nickcipher]
+      );
+      $("#message").val('');
+      return null;
+    };
+
+  </script>
+</body>
